@@ -1,12 +1,16 @@
 from pathlib import Path
 from pdf2image import convert_from_path
 
-# PDFファイルのパス
-pdf_path = Path("assets/sample.pdf")
-# outputのファイルパス
-img_path = Path("outputs")
 
-# この1文で変換されたjpegファイルが、imageホルダー内に作られます。
-convert_from_path(
-    pdf_path, output_folder=img_path, fmt='png', output_file=pdf_path.stem
-)
+def pdf_to_image(input_path: Path, output_path: Path):
+    convert_from_path(
+        input_path, output_folder=output_path, fmt='png',
+        output_file=input_path.stem
+    )
+
+
+pdf_path = Path("assets/sample.pdf")
+output_path = Path("outputs")
+
+if __name__ == '__main__':
+    pdf_to_image(pdf_path, output_path)
