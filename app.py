@@ -52,13 +52,13 @@ def upload_folder(bucket_name: str, folder_name: str, output_dir: str):
 
 
 def handler(event, context):
-    print('Hello from Lambda1')
+    print('event:')
     print(event)
-    print('Hello from Lambda2')
+    print('context:')
     print(context)
-    print('Hello from Lambda3')
+    print('sys.argv:')
     print(sys.argv)
-    print(event)
+
     source_bucket = event['source_bucket']
     destination_bucket = event.get('destination_bucket', source_bucket)
     source_file = event['source_file']
