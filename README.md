@@ -13,4 +13,9 @@ docker build ./ -t pdf-to-image
 ```sh
 docker run -it pdf-to-image bash
 $ python main.py
+$ ls outputs
+```
+
+```sh
+aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/m1u1m5o0
 ```
