@@ -60,11 +60,11 @@ def handler(event, context):
     print(sys.argv)
     print(event)
     source_bucket = event['source_bucket']
-    destination_bucket = event.get('bucket_name', source_bucket)
+    destination_bucket = event.get('destination_bucket', source_bucket)
     source_file = event['source_file']
     destination_path = event['destination_path']
-    temp_dir = "upload"
-    origin_path = "origin.pdf"
+    temp_dir = "/tmp/upload"
+    origin_path = "/tmp/origin.pdf"
     pdf_dir = f"{temp_dir}/pdfs"
     output_dir = f"{temp_dir}/images"
     os.makedirs(temp_dir, exist_ok=True)
