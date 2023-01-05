@@ -13,7 +13,6 @@ docker build ./ -t pdf-to-image
 ```sh
 docker run -it pdf-to-image bash
 $ python app.py
-$ ls outputs
 ```
 
 ```sh
