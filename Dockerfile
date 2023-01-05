@@ -1,12 +1,8 @@
-FROM python:3.11
+FROM public.ecr.aws/lambda/python:3.9
 
-WORKDIR /opt/app
+COPY . ${LAMBDA_TASK_ROOT}
 
-COPY . .
+RUN yum install poppler-utils -y
+RUN pip3 install pdf2image boto3 PyPDF2 --target "${LAMBDA_TASK_ROOT}"
 
-RUN apt-get update
-RUN apt-get install -y poppler-utils 
-RUN pip install pdf2image boto3 PyPDF2
-RUN mkdir outputs
-
-CMD echo 'Hello docker world!'
+CMD [ "app.handler" ]
