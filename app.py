@@ -1,8 +1,8 @@
-from typing import Callable
 import boto3
 import os
 import PyPDF2
 import shutil
+from typing import Callable
 from pathlib import Path
 from pdf2image import convert_from_path
 
