@@ -1,39 +1,51 @@
-import json
+from typing import Callable
 import boto3
 import os
 import PyPDF2
 import shutil
-import sys
 from pathlib import Path
 from pdf2image import convert_from_path
 
+s3_client = boto3.client('s3')
 
-def split_pdf(input_path: str, output_path: str) -> list[str]:
+
+def split_pdf(input_path: str, output_dir: str, on_created: Callable[[str], None]) -> list[str]:
     res = []
     with open(input_path, 'rb') as f:
         reader = PyPDF2.PdfReader(f)
         for index in range(len(reader.pages)):
             output = PyPDF2.PdfWriter()
             output.add_page(reader.pages[index])
-            file_name = f'{output_path}/page-{index}.pdf'
-            res.append(file_name)
-            with open(file_name, 'wb') as out:
+            number = f"{index}".zfill(4)
+            file_path = f'{output_dir}/page-{number}.pdf'
+            res.append(file_path)
+            with open(file_path, 'wb') as out:
                 output.write(out)
+            on_created(file_path)
 
     return res
 
 
-def pdf_to_image(input_path: str, output_dir: str) -> list[str]:
+def pdf_to_images(input_path: str, output_dir: str) -> list[str]:
     res = []
     input_path = Path(input_path)
     output_dir = Path(output_dir)
     pages = convert_from_path(input_path)
     for index, page in enumerate(pages):
-        file_name = f'{output_dir}/page-{index}.png'
+        number = f"{index}".zfill(4)
+        file_name = f'{output_dir}/page-{number}.png'
         res.append(file_name)
         page.save(file_name, 'PNG')
 
     return res
+
+
+def pdf_first_page_to_image(input_path: str, output_path: str):
+    input_path = Path(input_path)
+    output_path = Path(output_path)
+    pages = convert_from_path(input_path)
+    page = pages[0]
+    page.save(output_path, 'PNG')
 
 
 def download_pdf(bucket_name: str, file_name: str, output_path: str):
@@ -42,22 +54,21 @@ def download_pdf(bucket_name: str, file_name: str, output_path: str):
 
 
 def upload_folder(bucket_name: str, folder_name: str, output_dir: str):
-    s3 = boto3.client('s3')
     # Open the file in binary mode
     for root, dirs, files in os.walk(folder_name):
         for file in files:
             file_path = os.path.join(root, file)
             s3_key = f"{output_dir}{file_path.replace(folder_name, '')}"
-            s3.upload_file(file_path, bucket_name, s3_key)
+            upload_file(bucket_name, file_path, s3_key)
+
+
+def upload_file(bucket_name: str, file_path: str, s3_key: str):
+    s3_client.upload_file(file_path, bucket_name, s3_key)
 
 
 def handler(event, context):
-    print('event:')
+    print('Start!!!')
     print(event)
-    print('context:')
-    print(context)
-    print('sys.argv:')
-    print(sys.argv)
 
     source_bucket = event['source_bucket']
     destination_bucket = event.get('destination_bucket', source_bucket)
@@ -65,18 +76,42 @@ def handler(event, context):
     destination_path = event['destination_path']
     temp_dir = "/tmp/upload"
     origin_path = "/tmp/origin.pdf"
-    pdf_dir = f"{temp_dir}/pdfs"
-    output_dir = f"{temp_dir}/images"
+    pdfs_dir = f"{temp_dir}/pdfs"
+    images_dir = f"{temp_dir}/images"
     os.makedirs(temp_dir, exist_ok=True)
-    os.makedirs(pdf_dir, exist_ok=True)
-    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(pdfs_dir, exist_ok=True)
+    os.makedirs(images_dir, exist_ok=True)
+    print('Finish make directories!!!')
     download_pdf(source_bucket, source_file, origin_path)
-    pdfs = split_pdf(origin_path, pdf_dir)
-    images = pdf_to_image(origin_path, output_dir)
-    upload_folder(destination_bucket, temp_dir, destination_path)
+    print('Finish Download PDF!!!')
+
+    def on_created(pdf_path):
+        pdf_name = os.path.basename(pdf_path)
+        image_name = pdf_name.replace('.pdf', '.png')
+        image_path = f"{images_dir}/{image_name}"
+        pdf_first_page_to_image(pdf_path, image_path)
+        upload_file(
+            destination_bucket, pdf_path,
+            f"{destination_path}/pdfs/{pdf_name}"
+        )
+        print(f"Upload {destination_path}/pdfs/{pdf_name}")
+        upload_file(
+            destination_bucket, image_path,
+            f"{destination_path}/images/{image_name}"
+        )
+        print(f"Upload {destination_path}/images/{image_name}")
+
+        os.remove(pdf_path)
+        print(f"Remove {pdf_path}")
+        os.remove(image_path)
+        print(f"Remove {image_path}")
+
+    split_pdf(origin_path, pdfs_dir, on_created)
+
+    # images = pdf_to_images(origin_path, images_dir)
+    # upload_folder(destination_bucket, temp_dir, destination_path)
+    print('Finish Upload!!!')
     os.remove(origin_path)
+    print('Finish Cleaning!!!')
     shutil.rmtree(temp_dir)
-    return {
-        "statusCode": 200,
-        "body": json.dumps({"images": images, "pdfs": pdfs})
-    }
+    return {"statusCode": 200, "body": "Success"}
